@@ -1,0 +1,69 @@
+from PIL import Image
+from tkinter import Tk, filedialog, simpledialog, messagebox
+import os
+import random
+
+def scramble_pixels(image, key, encrypt=True):
+    width, height = image.size
+    pixels = list(image.getdata())
+    total_pixels = width * height
+
+    rng = random.Random(key)
+    indices = list(range(total_pixels))
+
+    if encrypt:
+        rng.shuffle(indices)
+    else:
+        shuffled = indices.copy()
+        rng.shuffle(shuffled)
+        # Create reverse mapping
+        indices = [0] * total_pixels
+        for i, j in enumerate(shuffled):
+            indices[j] = i
+
+    scrambled_pixels = [pixels[i] for i in indices]
+    image.putdata(scrambled_pixels)
+    return image
+
+def process_image(path, mode, key):
+    try:
+        image = Image.open(path).convert("RGB")
+
+        # Apply XOR to pixel values
+        pixels = image.load()
+        for i in range(image.width):
+            for j in range(image.height):
+                r, g, b = pixels[i, j]
+                pixels[i, j] = (r ^ key, g ^ key, b ^ key)
+
+        # Scramble or descramble pixels based on mode
+        scrambled = scramble_pixels(image, key, encrypt=(mode == "encrypt"))
+
+        output_path = os.path.splitext(path)[0] + ("_encrypted.png" if mode == "encrypt" else "_decrypted.png")
+        scrambled.save(output_path)
+        messagebox.showinfo("Success", f"Image {mode}ed successfully!\nSaved as: {output_path}")
+
+    except Exception as e:
+        messagebox.showerror("Error", f"Failed to {mode} image: {e}")
+
+def main():
+    root = Tk()
+    root.withdraw()
+
+    mode = simpledialog.askstring("Mode", "Type 'encrypt' or 'decrypt':")
+    if mode not in ["encrypt", "decrypt"]:
+        messagebox.showerror("Invalid Mode", "You must type 'encrypt' or 'decrypt'.")
+        return
+
+    key = simpledialog.askinteger("Key", "Enter encryption key (0–255):", minvalue=0, maxvalue=255)
+    if key is None:
+        return
+
+    file_path = filedialog.askopenfilename(title="Select Image", filetypes=[("Images", "*.jpg *.jpeg *.png")])
+    if not file_path:
+        return
+
+    process_image(file_path, mode, key)
+
+if __name__ == "__main__":
+    main()
